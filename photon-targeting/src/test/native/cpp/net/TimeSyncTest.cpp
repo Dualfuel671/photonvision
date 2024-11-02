@@ -15,17 +15,28 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#pragma once
+#include <gtest/gtest.h>
+#include <hal/HAL.h>
+#include <net/TimeSyncClient.h>
+#include <net/TimeSyncServer.h>
 
-#include <wpi/protobuf/Protobuf.h>
+TEST(TimeSyncProtocolTest, Smoketest) {
+  using namespace wpi::tsp;
+  using namespace std::chrono_literals;
 
-#include "photon/targeting/PhotonTrackedTarget.h"
+  HAL_Initialize(500, 0);
 
-template <>
-struct wpi::Protobuf<photon::PhotonTrackedTarget> {
-  static google::protobuf::Message* New(google::protobuf::Arena* arena);
-  static photon::PhotonTrackedTarget Unpack(
-      const google::protobuf::Message& msg);
-  static void Pack(google::protobuf::Message* msg,
-                   const photon::PhotonTrackedTarget& value);
-};
+  TimeSyncServer server{5812};
+  TimeSyncClient client{"127.0.0.1", 5812, 100ms};
+
+  server.Start();
+  client.Start();
+
+  for (int i = 0; i < 10; i++) {
+    std::this_thread::sleep_for(100ms);
+    TimeSyncClient::Metadata m = client.GetMetadata();
+    fmt::println("Offset={} rtt={}", m.offset, m.rtt2);
+  }
+
+  server.Stop();
+}
